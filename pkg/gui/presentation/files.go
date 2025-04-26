@@ -152,7 +152,7 @@ func getFileLine(
 		// Sprinting the space at the end in the specific style is for the sake of
 		// when a reverse style is used in the theme, which looks ugly if you just
 		// use the default style
-		output += indentation + formatFileStatus(file, nameColor) + nameColor.Sprint(" ")
+		output += indentation + formatFileStatus(file, nameColor, customIconsConfig.GitStatus) + nameColor.Sprint(" ")
 	}
 
 	isSubmodule := file != nil && file.IsSubmodule(submoduleConfigs)
@@ -180,22 +180,100 @@ func getFileLine(
 	return output
 }
 
-func formatFileStatus(file *models.File, restColor style.TextStyle) string {
+func formatFileStatus(file *models.File, restColor style.TextStyle, gitSymbols map[string]string) string {
 	firstChar := file.ShortStatus[0:1]
 	firstCharCl := style.FgGreen
 	if firstChar == "?" {
 		firstCharCl = theme.UnstagedChangesColor
-	} else if firstChar == " " {
-		firstCharCl = restColor
 	}
 
 	secondChar := file.ShortStatus[1:2]
 	secondCharCl := theme.UnstagedChangesColor
+
+	if len(gitSymbols) != 0 {
+		firstChar, secondChar = getGitSymbols(firstChar, secondChar, gitSymbols)
+		if len(firstChar) == 0 {
+			firstChar = " "
+		}
+		if len(secondChar) == 0 {
+			secondChar = " "
+		}
+	}
+
+	if firstChar == " " {
+		firstCharCl = restColor
+	}
 	if secondChar == " " {
 		secondCharCl = restColor
 	}
 
 	return firstCharCl.Sprint(firstChar) + secondCharCl.Sprint(secondChar)
+}
+
+func getGitSymbols(x string, y string, symbols map[string]string) (string, string) {
+	untracked, untrackedExists := symbols["untracked"]
+	ignored, ignoredExists := symbols["ignored"]
+	conflictedSymbol, conflictedSymbolExists := symbols["conflict"]
+	if x == "?" && untrackedExists {
+		return untracked, ""
+	}
+	if x == "!" && ignoredExists {
+		return ignored, ""
+	}
+	conflicted, conflictType := getConflictType(x, y, symbols)
+	if conflicted {
+		if !conflictedSymbolExists {
+			return x, y
+		}
+		return conflictedSymbol, conflictType
+	}
+	return getGitSymbol(x, symbols), getGitSymbol(y, symbols)
+}
+
+func getGitSymbol(char string, symbols map[string]string) string {
+	added, addedExists := symbols["added"]
+	deleted, deletedExists := symbols["deleted"]
+	modified, modifiedExists := symbols["modified"]
+	renamed, renamedExists := symbols["renamed"]
+	switch char {
+	case "?", "A":
+		if addedExists {
+			return added
+		}
+		break
+	case "M", "C":
+		if modifiedExists {
+			return modified
+		}
+		break
+	case "R", "T":
+		if renamedExists {
+			return renamed
+		}
+		break
+	case "D":
+		if deletedExists {
+			return deleted
+		}
+		break
+	}
+	return char
+}
+
+func getConflictType(x string, y string, symbols map[string]string) (bool, string) {
+	added := symbols["added"]
+	deleted := symbols["deleted"]
+	modified := symbols["modified"]
+	switch {
+	case (x == "D" && y == "D") || (x == "U" && y == "D") || (x == "D" && y == "U"):
+		return true, deleted
+	case (x == "A" && y == "A") || (x == "A" && y == "U") || (x == "U" && y == "A"):
+		return true, added
+	case x == "U" && y == "U":
+		return true, modified
+	default:
+		return false, ""
+	}
 }
 
 func formatLineChanges(linesAdded, linesDeleted int) string {

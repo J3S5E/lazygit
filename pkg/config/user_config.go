@@ -725,6 +725,8 @@ type CustomIconsConfig struct {
 	Filenames map[string]IconProperties `yaml:"filenames"`
 	// Map of file extensions (including the dot) to icon properties (icon and color)
 	Extensions map[string]IconProperties `yaml:"extensions"`
+	// Map of symbols to use for git status output
+	GitStatus map[string]string `yaml:"gitStatus"`
 }
 
 type IconProperties struct {
