@@ -43,7 +43,7 @@ gui:
   # See https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md#custom-branch-color
   branchColorPatterns: {}
 
-  # Custom icons for filenames and file extensions
+  # Custom icons for filenames, file extensions and git statuses
   # See https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md#custom-files-icon--color
   customIcons:
     # Map of filenames to icon properties (icon and color)
@@ -51,6 +51,9 @@ gui:
 
     # Map of file extensions (including the dot) to icon properties (icon and color)
     extensions: {}
+
+    # Map of status glyphs to use (glyphs)
+    gitStatus: {}
 
   # The number of lines you scroll by when scrolling the main window
   scrollHeight: 2
@@ -893,6 +896,14 @@ gui:
       ".dog":
         icon: "\U000f0a43"
         color: "#B6977E"
+    gitStatus:
+      "deleted": ' '
+      "renamed": '󰁕 '
+      "modified": '󰓎 '
+      "ignored": ' '
+      "added": ' '
+      "untracked": ' '
+      "conflict": ' '
 ```
 
 Note that there is no support for regular expressions.
