@@ -215,10 +215,10 @@ func getGitSymbols(x string, y string, symbols map[string]string) (string, strin
 	ignored, ignoredExists := symbols["ignored"]
 	conflictedSymbol, conflictedSymbolExists := symbols["conflict"]
 	if x == "?" && untrackedExists {
-		return untracked, ""
+		return "", untracked
 	}
 	if x == "!" && ignoredExists {
-		return ignored, ""
+		return "", ignored
 	}
 	conflicted, conflictType := getConflictType(x, y, symbols)
 	if conflicted {
