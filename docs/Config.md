@@ -905,13 +905,13 @@ gui:
         icon: "\U000f0a43"
         color: "#B6977E"
     gitStatus:
-      "deleted": ' '
-      "renamed": '󰁕 '
-      "modified": '󰓎 '
-      "ignored": ' '
-      "added": ' '
-      "untracked": ' '
-      "conflict": ' '
+      "deleted": ''
+      "renamed": '󰁕'
+      "modified": '󰓎'
+      "ignored": ''
+      "added": ''
+      "untracked": ''
+      "conflict": ''
 ```
 
 Note that there is no support for regular expressions.
