@@ -96,10 +96,6 @@
             "git fetch {{.Form.Remote}} {{.Form.Branch}} \u0026\u0026 git checkout FETCH_HEAD"
           ]
         },
-        "subprocess": {
-          "type": "boolean",
-          "description": "If true, run the command in a subprocess (e.g. if the command requires user input)"
-        },
         "prompts": {
           "items": {
             "$ref": "#/$defs/CustomCommandPrompt"
@@ -118,17 +114,20 @@
           "type": "string",
           "description": "Label for the custom command when displayed in the keybindings menu"
         },
-        "stream": {
-          "type": "boolean",
-          "description": "If true, stream the command's output to the Command Log panel"
-        },
-        "showOutput": {
-          "type": "boolean",
-          "description": "If true, show the command's output in a popup within Lazygit"
+        "output": {
+          "type": "string",
+          "enum": [
+            "none",
+            "terminal",
+            "log",
+            "logWithPty",
+            "popup"
+          ],
+          "description": "Where the output of the command should go. 'none' discards it, 'terminal' suspends lazygit and runs the command in the terminal (useful for commands that require user input), 'log' streams it to the command log, 'logWithPty' is like 'log' but runs the command in a pseudo terminal (can be useful for commands that produce colored output when the output is a terminal), and 'popup' shows it in a popup."
         },
         "outputTitle": {
           "type": "string",
-          "description": "The title to display in the popup panel if showOutput is true. If left unset, the command will be used as the title."
+          "description": "The title to display in the popup panel if output is set to 'popup'. If left unset, the command will be used as the title."
         },
         "after": {
           "$ref": "#/$defs/CustomCommandAfterHook",
@@ -332,7 +331,7 @@
             "onlyMainBranches",
             "allBranches"
           ],
-          "description": "If not \"none\", lazygit will automatically forward branches to their upstream after fetching. Applies to branches that are not the currently checked out branch, and only to those that are strictly behind their upstream (as opposed to diverged).\nPossible values: 'none' | 'onlyMainBranches' | 'allBranches'",
+          "description": "If not \"none\", lazygit will automatically fast-forward local branches to match their upstream after fetching. Applies to branches that are not the currently checked out branch, and only to those that are strictly behind their upstream (as opposed to diverged).\nPossible values: 'none' | 'onlyMainBranches' | 'allBranches'",
           "default": "onlyMainBranches"
         },
         "fetchAll": {
@@ -350,17 +349,15 @@
           "description": "Command used when displaying the current branch git log in the main window",
           "default": "git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --"
         },
-        "allBranchesLogCmd": {
-          "type": "string",
-          "description": "Command used to display git log of all branches in the main window.\nDeprecated: Use `allBranchesLogCmds` instead.",
-          "default": "git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium"
-        },
         "allBranchesLogCmds": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Commands used to display git log of all branches in the main window, they will be cycled in order of appearance (array of strings)"
+          "description": "Commands used to display git log of all branches in the main window, they will be cycled in order of appearance (array of strings)",
+          "default": [
+            "git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium"
+          ]
         },
         "overrideGpg": {
           "type": "boolean",
@@ -471,6 +468,11 @@
           "description": "If true, capture mouse events.\nWhen mouse events are captured, it's a little harder to select text: e.g. requiring you to hold the option key when on macOS.",
           "default": true
         },
+        "skipAmendWarning": {
+          "type": "boolean",
+          "description": "If true, do not show a warning when amending a commit.",
+          "default": false
+        },
         "skipDiscardChangeWarning": {
           "type": "boolean",
           "description": "If true, do not show a warning when discarding changes in the staging view.",
@@ -570,6 +572,11 @@
         "showFileTree": {
           "type": "boolean",
           "description": "If true, display the files in the file views as a tree. If false, display the files as a flat list.\nThis can be toggled from within Lazygit with the '`' key, but that will not change the default.",
+          "default": true
+        },
+        "showRootItemInFileTree": {
+          "type": "boolean",
+          "description": "If true, add a \"/\" root item in the file tree representing the root of the repository. It is only added when necessary, i.e. when there is more than one item at top level.",
           "default": true
         },
         "showNumstatInFilesView": {
@@ -678,9 +685,10 @@
             "single",
             "double",
             "rounded",
-            "hidden"
+            "hidden",
+            "bold"
           ],
-          "description": "Window border style.\nOne of 'rounded' (default) | 'single' | 'double' | 'hidden'",
+          "description": "Window border style.\nOne of 'rounded' (default) | 'single' | 'double' | 'hidden' | 'bold'",
           "default": "rounded"
         },
         "animateExplosion": {
@@ -1312,6 +1320,10 @@
         "confirmInEditor": {
           "type": "string",
           "default": "\u003ca-enter\u003e"
+        },
+        "confirmInEditor-alt": {
+          "type": "string",
+          "default": "\u003cc-s\u003e"
         },
         "remove": {
           "type": "string",

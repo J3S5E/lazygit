@@ -53,8 +53,8 @@ type IGuiCommon interface {
 	GetViewBufferManagerForView(view *gocui.View) *tasks.ViewBufferManager
 
 	// returns true if command completed successfully
-	RunSubprocess(cmdObj oscommands.ICmdObj) (bool, error)
-	RunSubprocessAndRefresh(oscommands.ICmdObj) error
+	RunSubprocess(cmdObj *oscommands.CmdObj) (bool, error)
+	RunSubprocessAndRefresh(*oscommands.CmdObj) error
 
 	Context() IContextMgr
 	ContextForKey(key ContextKey) Context
@@ -202,6 +202,10 @@ type DisabledReason struct {
 	// error panel instead. This is useful if the text is very long, or if it is
 	// important enough to show it more prominently, or both.
 	ShowErrorInPanel bool
+
+	// If true, the keybinding dispatch mechanism will continue to look for
+	// other handlers for the keypress.
+	AllowFurtherDispatching bool
 }
 
 type MenuWidget int
@@ -305,6 +309,8 @@ type Model struct {
 	FilesTrie *patricia.Trie
 
 	Authors map[string]*models.Author
+
+	HashPool *utils.StringPool
 }
 
 // if you add a new mutex here be sure to instantiate it. We're using pointers to

@@ -74,6 +74,8 @@ type GuiConfig struct {
 	// If true, capture mouse events.
 	// When mouse events are captured, it's a little harder to select text: e.g. requiring you to hold the option key when on macOS.
 	MouseEvents bool `yaml:"mouseEvents"`
+	// If true, do not show a warning when amending a commit.
+	SkipAmendWarning bool `yaml:"skipAmendWarning"`
 	// If true, do not show a warning when discarding changes in the staging view.
 	SkipDiscardChangeWarning bool `yaml:"skipDiscardChangeWarning"`
 	// If true, do not show warning when applying/popping the stash
@@ -123,6 +125,8 @@ type GuiConfig struct {
 	// If true, display the files in the file views as a tree. If false, display the files as a flat list.
 	// This can be toggled from within Lazygit with the '`' key, but that will not change the default.
 	ShowFileTree bool `yaml:"showFileTree"`
+	// If true, add a "/" root item in the file tree representing the root of the repository. It is only added when necessary, i.e. when there is more than one item at top level.
+	ShowRootItemInFileTree bool `yaml:"showRootItemInFileTree"`
 	// If true, show the number of lines changed per file in the Files view
 	ShowNumstatInFilesView bool `yaml:"showNumstatInFilesView"`
 	// If true, show a random tip in the command log when Lazygit starts
@@ -162,8 +166,8 @@ type GuiConfig struct {
 	// One of: 'normal' (default) | 'half' | 'full'
 	ScreenMode string `yaml:"screenMode" jsonschema:"enum=normal,enum=half,enum=full"`
 	// Window border style.
-	// One of 'rounded' (default) | 'single' | 'double' | 'hidden'
-	Border string `yaml:"border" jsonschema:"enum=single,enum=double,enum=rounded,enum=hidden"`
+	// One of 'rounded' (default) | 'single' | 'double' | 'hidden' | 'bold'
+	Border string `yaml:"border" jsonschema:"enum=single,enum=double,enum=rounded,enum=hidden,enum=bold"`
 	// If true, show a seriously epic explosion animation when nuking the working tree.
 	AnimateExplosion bool `yaml:"animateExplosion"`
 	// Whether to stack UI components on top of each other.
@@ -244,7 +248,7 @@ type GitConfig struct {
 	AutoFetch bool `yaml:"autoFetch"`
 	// If true, periodically refresh files and submodules
 	AutoRefresh bool `yaml:"autoRefresh"`
-	// If not "none", lazygit will automatically forward branches to their upstream after fetching. Applies to branches that are not the currently checked out branch, and only to those that are strictly behind their upstream (as opposed to diverged).
+	// If not "none", lazygit will automatically fast-forward local branches to match their upstream after fetching. Applies to branches that are not the currently checked out branch, and only to those that are strictly behind their upstream (as opposed to diverged).
 	// Possible values: 'none' | 'onlyMainBranches' | 'allBranches'
 	AutoForwardBranches string `yaml:"autoForwardBranches" jsonschema:"enum=none,enum=onlyMainBranches,enum=allBranches"`
 	// If true, pass the --all arg to git fetch
@@ -256,9 +260,6 @@ type GitConfig struct {
 	AutoStageResolvedConflicts bool `yaml:"autoStageResolvedConflicts"`
 	// Command used when displaying the current branch git log in the main window
 	BranchLogCmd string `yaml:"branchLogCmd"`
-	// Command used to display git log of all branches in the main window.
-	// Deprecated: Use `allBranchesLogCmds` instead.
-	AllBranchesLogCmd string `yaml:"allBranchesLogCmd" jsonschema:"deprecated"`
 	// Commands used to display git log of all branches in the main window, they will be cycled in order of appearance (array of strings)
 	AllBranchesLogCmds []string `yaml:"allBranchesLogCmds"`
 	// If true, do not spawn a separate process when using GPG
@@ -408,6 +409,7 @@ type KeybindingUniversalConfig struct {
 	GoInto                            string   `yaml:"goInto"`
 	Confirm                           string   `yaml:"confirm"`
 	ConfirmInEditor                   string   `yaml:"confirmInEditor"`
+	ConfirmInEditorAlt                string   `yaml:"confirmInEditor-alt"`
 	Remove                            string   `yaml:"remove"`
 	New                               string   `yaml:"new"`
 	Edit                              string   `yaml:"edit"`
@@ -637,22 +639,15 @@ type CustomCommand struct {
 	Context string `yaml:"context" jsonschema:"example=status,example=files,example=worktrees,example=localBranches,example=remotes,example=remoteBranches,example=tags,example=commits,example=reflogCommits,example=subCommits,example=commitFiles,example=stash,example=global"`
 	// The command to run (using Go template syntax for placeholder values)
 	Command string `yaml:"command" jsonschema:"example=git fetch {{.Form.Remote}} {{.Form.Branch}} && git checkout FETCH_HEAD"`
-	// If true, run the command in a subprocess (e.g. if the command requires user input)
-	// [dev] Pointer to bool so that we can distinguish unset (nil) from false.
-	Subprocess *bool `yaml:"subprocess"`
 	// A list of prompts that will request user input before running the final command
 	Prompts []CustomCommandPrompt `yaml:"prompts"`
 	// Text to display while waiting for command to finish
 	LoadingText string `yaml:"loadingText" jsonschema:"example=Loading..."`
 	// Label for the custom command when displayed in the keybindings menu
 	Description string `yaml:"description"`
-	// If true, stream the command's output to the Command Log panel
-	// [dev] Pointer to bool so that we can distinguish unset (nil) from false.
-	Stream *bool `yaml:"stream"`
-	// If true, show the command's output in a popup within Lazygit
-	// [dev] Pointer to bool so that we can distinguish unset (nil) from false.
-	ShowOutput *bool `yaml:"showOutput"`
-	// The title to display in the popup panel if showOutput is true. If left unset, the command will be used as the title.
+	// Where the output of the command should go. 'none' discards it, 'terminal' suspends lazygit and runs the command in the terminal (useful for commands that require user input), 'log' streams it to the command log, 'logWithPty' is like 'log' but runs the command in a pseudo terminal (can be useful for commands that produce colored output when the output is a terminal), and 'popup' shows it in a popup.
+	Output string `yaml:"output" jsonschema:"enum=none,enum=terminal,enum=log,enum=logWithPty,enum=popup"`
+	// The title to display in the popup panel if output is set to 'popup'. If left unset, the command will be used as the title.
 	OutputTitle string `yaml:"outputTitle"`
 	// Actions to take after the command has completed
 	// [dev] Pointer so that we can tell whether it appears in the config file
@@ -743,6 +738,7 @@ func GetDefaultConfig() *UserConfig {
 			ScrollOffBehavior:        "margin",
 			TabWidth:                 4,
 			MouseEvents:              true,
+			SkipAmendWarning:         false,
 			SkipDiscardChangeWarning: false,
 			SkipStashWarning:         false,
 			SidePanelWidth:           0.3333,
@@ -775,6 +771,7 @@ func GetDefaultConfig() *UserConfig {
 			ShowBottomLine:               true,
 			ShowPanelJumps:               true,
 			ShowFileTree:                 true,
+			ShowRootItemInFileTree:       true,
 			ShowNumstatInFilesView:       false,
 			ShowRandomTip:                true,
 			ShowIcons:                    false,
@@ -832,7 +829,7 @@ func GetDefaultConfig() *UserConfig {
 			FetchAll:                     true,
 			AutoStageResolvedConflicts:   true,
 			BranchLogCmd:                 "git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --",
-			AllBranchesLogCmd:            "git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium",
+			AllBranchesLogCmds:           []string{"git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium"},
 			DisableForcePushing:          false,
 			CommitPrefixes:               map[string][]CommitPrefixConfig(nil),
 			BranchPrefix:                 "",
@@ -894,6 +891,7 @@ func GetDefaultConfig() *UserConfig {
 				GoInto:                            "<enter>",
 				Confirm:                           "<enter>",
 				ConfirmInEditor:                   "<a-enter>",
+				ConfirmInEditorAlt:                "<c-s>",
 				Remove:                            "d",
 				New:                               "n",
 				Edit:                              "e",

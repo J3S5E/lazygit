@@ -75,6 +75,9 @@ gui:
   # When mouse events are captured, it's a little harder to select text: e.g. requiring you to hold the option key when on macOS.
   mouseEvents: true
 
+  # If true, do not show a warning when amending a commit.
+  skipAmendWarning: false
+
   # If true, do not show a warning when discarding changes in the staging view.
   skipDiscardChangeWarning: false
 
@@ -193,6 +196,9 @@ gui:
   # This can be toggled from within Lazygit with the '`' key, but that will not change the default.
   showFileTree: true
 
+  # If true, add a "/" root item in the file tree representing the root of the repository. It is only added when necessary, i.e. when there is more than one item at top level.
+  showRootItemInFileTree: true
+
   # If true, show the number of lines changed per file in the Files view
   showNumstatInFilesView: false
 
@@ -245,7 +251,7 @@ gui:
   screenMode: normal
 
   # Window border style.
-  # One of 'rounded' (default) | 'single' | 'double' | 'hidden'
+  # One of 'rounded' (default) | 'single' | 'double' | 'hidden' | 'bold'
   border: rounded
 
   # If true, show a seriously epic explosion animation when nuking the working tree.
@@ -340,7 +346,7 @@ git:
   # If true, periodically refresh files and submodules
   autoRefresh: true
 
-  # If not "none", lazygit will automatically forward branches to their upstream after fetching. Applies to branches that are not the currently checked out branch, and only to those that are strictly behind their upstream (as opposed to diverged).
+  # If not "none", lazygit will automatically fast-forward local branches to match their upstream after fetching. Applies to branches that are not the currently checked out branch, and only to those that are strictly behind their upstream (as opposed to diverged).
   # Possible values: 'none' | 'onlyMainBranches' | 'allBranches'
   autoForwardBranches: onlyMainBranches
 
@@ -357,7 +363,8 @@ git:
   branchLogCmd: git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --
 
   # Commands used to display git log of all branches in the main window, they will be cycled in order of appearance (array of strings)
-  allBranchesLogCmds: []
+  allBranchesLogCmds:
+    - git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium
 
   # If true, do not spawn a separate process when using GPG
   overrideGpg: false
@@ -518,6 +525,7 @@ keybinding:
     goInto: <enter>
     confirm: <enter>
     confirmInEditor: <a-enter>
+    confirmInEditor-alt: <c-s>
     remove: d
     new: "n"
     edit: e

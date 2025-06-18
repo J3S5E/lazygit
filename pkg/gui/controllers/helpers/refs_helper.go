@@ -231,7 +231,7 @@ func (self *RefsHelper) CreateSortOrderMenu(sortOptionsOrder []string, onSelecte
 	})
 }
 
-func (self *RefsHelper) CreateGitResetMenu(ref string) error {
+func (self *RefsHelper) CreateGitResetMenu(name string, ref string) error {
 	type strengthWithKey struct {
 		strength string
 		label    string
@@ -249,7 +249,7 @@ func (self *RefsHelper) CreateGitResetMenu(ref string) error {
 		return &types.MenuItem{
 			LabelColumns: []string{
 				row.label,
-				style.FgRed.Sprintf("reset --%s %s", row.strength, ref),
+				style.FgRed.Sprintf("reset --%s %s", row.strength, name),
 			},
 			OnPress: func() error {
 				self.c.LogAction("Reset")
@@ -261,17 +261,17 @@ func (self *RefsHelper) CreateGitResetMenu(ref string) error {
 	})
 
 	return self.c.Menu(types.CreateMenuOptions{
-		Title: fmt.Sprintf("%s %s", self.c.Tr.ResetTo, ref),
+		Title: fmt.Sprintf("%s %s", self.c.Tr.ResetTo, name),
 		Items: menuItems,
 	})
 }
 
 func (self *RefsHelper) CreateCheckoutMenu(commit *models.Commit) error {
 	branches := lo.Filter(self.c.Model().Branches, func(branch *models.Branch, _ int) bool {
-		return commit.Hash == branch.CommitHash && branch.Name != self.c.Model().CheckedOutBranch
+		return commit.Hash() == branch.CommitHash && branch.Name != self.c.Model().CheckedOutBranch
 	})
 
-	hash := commit.Hash
+	hash := commit.Hash()
 
 	menuItems := []*types.MenuItem{
 		{
@@ -325,13 +325,10 @@ func (self *RefsHelper) NewBranch(from string, fromFormattedName string, suggest
 	if suggestedBranchName == "" {
 		var err error
 
-		suggestedBranchName, err = utils.ResolveTemplate(self.c.UserConfig().Git.BranchPrefix, nil, template.FuncMap{
-			"runCommand": self.c.Git().Custom.TemplateFunctionRunCommand,
-		})
+		suggestedBranchName, err = self.getSuggestedBranchName()
 		if err != nil {
 			return err
 		}
-		suggestedBranchName = strings.ReplaceAll(suggestedBranchName, "\t", " ")
 	}
 
 	refresh := func() error {
@@ -399,16 +396,21 @@ func (self *RefsHelper) MoveCommitsToNewBranch() error {
 		return err
 	}
 
-	withNewBranchNamePrompt := func(baseBranchName string, f func(string, string) error) {
+	withNewBranchNamePrompt := func(baseBranchName string, f func(string, string) error) error {
 		prompt := utils.ResolvePlaceholderString(
 			self.c.Tr.NewBranchNameBranchOff,
 			map[string]string{
 				"branchName": baseBranchName,
 			},
 		)
+		suggestedBranchName, err := self.getSuggestedBranchName()
+		if err != nil {
+			return err
+		}
 
 		self.c.Prompt(types.PromptOpts{
-			Title: prompt,
+			Title:          prompt,
+			InitialContent: suggestedBranchName,
 			HandleConfirm: func(response string) error {
 				self.c.LogAction(self.c.Tr.MoveCommitsToNewBranch)
 				newBranchName := SanitizedBranchName(response)
@@ -417,6 +419,7 @@ func (self *RefsHelper) MoveCommitsToNewBranch() error {
 				})
 			},
 		})
+		return nil
 	}
 
 	isMainBranch := lo.Contains(self.c.UserConfig().Git.MainBranches, currentBranch.Name)
@@ -431,8 +434,7 @@ func (self *RefsHelper) MoveCommitsToNewBranch() error {
 			Title:  self.c.Tr.MoveCommitsToNewBranch,
 			Prompt: prompt,
 			HandleConfirm: func() error {
-				withNewBranchNamePrompt(currentBranch.Name, self.moveCommitsToNewBranchStackedOnCurrentBranch)
-				return nil
+				return withNewBranchNamePrompt(currentBranch.Name, self.moveCommitsToNewBranchStackedOnCurrentBranch)
 			},
 		})
 		return nil
@@ -452,17 +454,15 @@ func (self *RefsHelper) MoveCommitsToNewBranch() error {
 			{
 				Label: fmt.Sprintf(self.c.Tr.MoveCommitsToNewBranchFromBaseItem, shortBaseBranchName),
 				OnPress: func() error {
-					withNewBranchNamePrompt(shortBaseBranchName, func(currentBranch string, newBranchName string) error {
+					return withNewBranchNamePrompt(shortBaseBranchName, func(currentBranch string, newBranchName string) error {
 						return self.moveCommitsToNewBranchOffOfMainBranch(currentBranch, newBranchName, baseBranchRef)
 					})
-					return nil
 				},
 			},
 			{
 				Label: fmt.Sprintf(self.c.Tr.MoveCommitsToNewBranchStackedItem, currentBranch.Name),
 				OnPress: func() error {
-					withNewBranchNamePrompt(currentBranch.Name, self.moveCommitsToNewBranchStackedOnCurrentBranch)
-					return nil
+					return withNewBranchNamePrompt(currentBranch.Name, self.moveCommitsToNewBranchStackedOnCurrentBranch)
 				},
 			},
 		},
@@ -586,4 +586,15 @@ func (self *RefsHelper) ParseRemoteBranchName(fullBranchName string) (string, st
 
 func IsSwitchBranchUncommittedChangesError(err error) bool {
 	return strings.Contains(err.Error(), "Please commit your changes or stash them before you switch branch")
+}
+
+func (self *RefsHelper) getSuggestedBranchName() (string, error) {
+	suggestedBranchName, err := utils.ResolveTemplate(self.c.UserConfig().Git.BranchPrefix, nil, template.FuncMap{
+		"runCommand": self.c.Git().Custom.TemplateFunctionRunCommand,
+	})
+	if err != nil {
+		return suggestedBranchName, err
+	}
+	suggestedBranchName = strings.ReplaceAll(suggestedBranchName, "\t", " ")
+	return suggestedBranchName, nil
 }
